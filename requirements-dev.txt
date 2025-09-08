@@ -1,0 +1,14 @@
+# 개발/테스트 전용(운영에 필요 없음)
+
+# Lint/Format/Type
+ruff==0.6.9
+mypy==1.11.2
+
+# Test
+pytest==8.3.3
+pytest-cov==5.0.0
+
+# Git Hooks / Commit Style / Secrets
+pre-commit==3.8.0
+commitizen==3.28.0
+detect-secrets==1.5.0

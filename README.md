@@ -117,3 +117,25 @@ flueman-api/
 - 버그픽스: `fix/<영역>/<이슈>`
 - 릴리스: `release/x.y.z`
 - 핫픽스: `hotfix/x.y.z`
+
+---
+
+## 🛠 개발 환경
+
+### 의존성 관리
+
+- **운영(프로덕션)**: `requirements.txt`
+- **개발/테스트**: `requirements-dev.txt`
+
+### 설치 방법
+
+#### 로컬 개발
+
+```bash
+# 운영 + 개발 의존성 설치
+pip install -r requirements.txt -r requirements-dev.txt
+
+# pre-commit 훅 설치
+pre-commit install
+pre-commit install --hook-type commit-msg
+```
