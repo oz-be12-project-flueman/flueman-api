@@ -1,0 +1,45 @@
+# 목적: base가 dev인 PR이 "머지"되면, 같은 저장소의 헤드 브랜치를 자동 삭제
+# 포크 PR은 권한 문제로 제외, 보호 브랜치/중요 브랜치(main/dev/release/*)는 절대 삭제하지 않음
+# ※ feature/* 만 삭제하고 싶다면 아래 if 조건 주석의 startsWith(...) 라인을 활성화
+
+name: Housekeeping
+
+on:
+  pull_request:
+    types: [closed] # PR이 닫힐 때(머지 포함) 트리거
+
+permissions:
+  contents: write # 브랜치 삭제 권한
+
+jobs:
+  auto_delete_feature:
+    # 실행 조건:
+    # 1) PR이 머지됨
+    # 2) 대상(base) 브랜치가 dev
+    # 3) 헤드 브랜치가 같은 저장소(포크 제외)
+    # 4) 헤드 브랜치가 보호/중요 브랜치가 아님 (main/dev/release/* 등)
+    # 5) feature/* 만 삭제하고 싶으면 startsWith(...) 조건 추가
+    if: >
+      github.event.pull_request.merged == true &&
+      github.event.pull_request.base.ref == 'dev' &&
+      github.event.pull_request.head.repo.full_name == github.repository &&
+      github.event.pull_request.head.ref != 'main' &&
+      github.event.pull_request.head.ref != 'dev' &&
+      !startsWith(github.event.pull_request.head.ref, 'release/') &&
+      startsWith(github.event.pull_request.head.ref, 'feature/')
+    runs-on: ubuntu-latest
+    steps:
+      - name: Delete head branch # 안전하게 헤드 브랜치 삭제
+        uses: actions/github-script@v7
+        with:
+          script: |
+            const headRef = context.payload.pull_request.head.ref;   // 예: feature/abc-123
+            const ref = `heads/${headRef}`;
+            core.info(`Deleting branch: ${ref}`);
+
+            await github.rest.git.deleteRef({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              ref
+            });
+            core.info(`Deleted: ${ref}`);

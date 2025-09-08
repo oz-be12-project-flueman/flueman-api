@@ -1,56 +1,58 @@
-# 목적: PR 품질 게이트. lint → test → build 를 순서대로 실행해 최소 품질 기준 확보
-# 트리거: main/dev 대상 Pull Request, 수동 실행(workflow_dispatch)
-# 보호규칙: main에는 ci/lint, ci/test, ci/build 필수 체크 / dev는 ci/lint, ci/test 권장
-# 참고: pull_request_target 는 권한 이슈가 있어 기본 비활성(주석). 외부 PR 신뢰 시에만 사용 권장.
+# 목적: PR 품질 게이트를 통해 최소 품질 확보 (lint → test → build 순서)
+# 보호규칙(Branch protection)에 등록할 체크 이름: ci/lint, ci/test, ci/build
 
 name: CI
 
 on:
-  pull_request:
-    branches: [main, dev] # PR 생성/업데이트 시 동작
-  # pull_request_target:
-  #   branches: [main] # 외부 PR 등 특수 케이스용 (권한 주의)
-  workflow_dispatch: # 수동 실행
+  pull_request: # PR 생성/업데이트 시 실행 (대상 브랜치: main, dev)
+    branches: [main, dev]
+  workflow_dispatch: # 필요 시 수동 실행
 
 permissions:
-  contents: read
+  contents: read # 코드 읽기 권한(기본)
 
 jobs:
+  # -------------------------------
+  # 1) 린트/정적분석 단계
+  # -------------------------------
   lint:
-    name: ci/lint # ✅ 코드 스타일/정적 분석
+    name: ci/lint # 보호규칙에서 요구하는 체크 이름
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4 # 코드 체크아웃
+      - uses: actions/checkout@v4 # PR의 코드 체크아웃
 
-      - name: Set up Python # Python 3.12 환경 세팅
+      - name: Set up Python # 파이썬 3.12 세팅
         uses: actions/setup-python@v5
-        with:
-          python-version: "3.12"
+        with: { python-version: "3.12" }
 
-      - name: Cache pip # pip 캐시로 설치 속도 향상 (constraints 포함)
+      - name: Cache pip # 의존성 설치 속도 향상(캐시)
         uses: actions/cache@v4
         with:
           path: ~/.cache/pip
-          key: ${{ runner.os }}-py312-pip-${{ hashFiles('constraints.txt', 'requirements.txt', 'requirements-dev.txt', '**/pyproject.toml') }}
-          restore-keys: ${{ runner.os }}-py312-pip-
+          # constraints/requirements 변경 시 캐시 무효화
+          key: ${{ runner.os }}-py312-${{ hashFiles('constraints.txt','requirements.txt','requirements-dev.txt') }}
+          restore-keys: ${{ runner.os }}-py312-
 
-      - name: Install deps (lint) # 운영+dev 의존성 + 공통 제약 적용
+      - name: Install deps # 운영+개발 의존성 설치(+공통 제약 적용)
         run: |
           python -m pip install --upgrade pip
           pip install -r requirements.txt -r requirements-dev.txt -c constraints.txt
 
-      - name: Ruff # 코드 스타일/린트
+      - name: Ruff # 코드 스타일/린트 검사
         run: ruff check .
 
-      - name: Mypy (optional) # 타입 체크(선택, 실패 허용)
+      - name: Mypy (optional) # 타입 체크(선택, 실패해도 워크플로 실패처리 X)
         run: mypy app || true
 
+  # -------------------------------
+  # 2) 테스트 단계 (DB 포함)
+  # -------------------------------
   test:
-    name: ci/test # ✅ 단위/통합 테스트
+    name: ci/test # 보호규칙에서 요구하는 체크 이름
     runs-on: ubuntu-latest
-    needs: [lint] # lint 통과 후 실행
+    needs: [lint] # lint 성공 후 실행
     services:
-      mysql: # MySQL 테스트 컨테이너 기동
+      mysql: # MySQL 컨테이너 기동(통합테스트용)
         image: mysql:8
         env:
           MYSQL_ROOT_PASSWORD: root
@@ -61,54 +63,56 @@ jobs:
           --health-interval=10s
           --health-timeout=5s
           --health-retries=10
+
     steps:
       - uses: actions/checkout@v4
 
-      - name: Set up Python # Python 3.12
+      - name: Set up Python # 파이썬 3.12 세팅
         uses: actions/setup-python@v5
-        with:
-          python-version: "3.12"
+        with: { python-version: "3.12" }
 
-      - name: Cache pip
+      - name: Cache pip # 의존성 캐시
         uses: actions/cache@v4
         with:
           path: ~/.cache/pip
-          key: ${{ runner.os }}-py312-pip-${{ hashFiles('constraints.txt', 'requirements.txt', 'requirements-dev.txt', '**/pyproject.toml') }}
-          restore-keys: ${{ runner.os }}-py312-pip-
+          key: ${{ runner.os }}-py312-${{ hashFiles('constraints.txt','requirements.txt','requirements-dev.txt') }}
+          restore-keys: ${{ runner.os }}-py312-
 
-      - name: Install deps (test) # 운영+dev 의존성 + 공통 제약 적용
+      - name: Install deps # 테스트에 필요한 의존성 설치
         run: |
           python -m pip install --upgrade pip
           pip install -r requirements.txt -r requirements-dev.txt -c constraints.txt
 
-      - name: Wait for MySQL # DB 가용 대기
+      - name: Wait for MySQL # DB 기동 대기(헬스체크)
         run: |
           for i in `seq 1 30`; do
             mysqladmin ping -h 127.0.0.1 -proot && break
             sleep 2
           done
 
-      - name: Run tests # 테스트 실행(+커버리지)
+      - name: Run tests # Pytest 실행(커버리지 포함)
         env:
-          DB_URL: "mysql+pymysql://root:root@127.0.0.1:3306/flueman_test"
+          DB_URL: "mysql+pymysql://root:root@127.0.0.1:3306/flueman_test" # 앱이 참조할 테스트 DB URL
           ENV: test
-        run: |
-          pytest -q --maxfail=1 --disable-warnings --cov=app --cov-report=term-missing
+        run: pytest -q --maxfail=1 --disable-warnings --cov=app --cov-report=term-missing
 
+  # -------------------------------
+  # 3) 빌드 단계 (배포 전 도커 빌드 검증)
+  # -------------------------------
   build:
-    name: ci/build # ✅ Docker 빌드 검증(푸시 X)
+    name: ci/build # 보호규칙에서 요구하는 체크 이름
     runs-on: ubuntu-latest
-    needs: [test] # 테스트 통과 후 실행
+    needs: [test] # 테스트 성공 후 실행
     steps:
       - uses: actions/checkout@v4
 
-      - name: Set up Docker Buildx # 멀티플랫폼 빌드 지원
+      - name: Set up Docker Buildx # 멀티 플랫폼 빌드 지원 세팅
         uses: docker/setup-buildx-action@v3
 
-      - name: Build (no push) # 이미지 빌드만 진행
+      - name: Build (no push) # Docker 이미지 빌드만 수행(푸시 X)
         uses: docker/build-push-action@v6
         with:
-          context: .
-          file: ./docker/Dockerfile
-          push: false
-          tags: ghcr.io/${{ github.repository }}:pr-${{ github.event.number }}
+          context: . # 빌드 컨텍스트(레포 루트)
+          file: ./docker/Dockerfile # 사용할 Dockerfile 경로
+          push: false # 레지스트리 푸시 안 함
+          tags: ghcr.io/${{ github.repository }}:pr-${{ github.event.number }} # 임시 태그(검증용)

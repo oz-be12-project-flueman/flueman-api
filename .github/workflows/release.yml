@@ -1,0 +1,106 @@
+# 목적: release/* 브랜치 푸시 시 스모크 테스트 실행,
+#      release/x.y.z → main PR 머지 시 태그(vX.Y.Z) 생성 및 GitHub Release 발행
+# 보호규칙 매핑:
+#  - release/* 브랜치 Required check: ci/smoke
+
+name: Release Pipeline
+
+on:
+  push:
+    branches: ["release/**"] # 🔔 release/* 에 커밋 푸시되면 스모크 테스트
+  pull_request:
+    types: [closed] # 🔔 PR이 닫힐 때(머지 포함) 태깅/릴리스 트리거
+    branches: [main] #    대상: main 으로 머지되는 PR
+  workflow_dispatch: # 🔔 수동 실행(필요 시)
+
+permissions:
+  contents: write # 🔖 태그/릴리스 생성 권한
+  pull-requests: read
+
+env:
+  PY_VERSION: "3.12"
+
+jobs:
+  # ------------------------------------------------------
+  # 1) 스모크 테스트 (release/* 브랜치 푸시 시)
+  # ------------------------------------------------------
+  smoke:
+    if: github.event_name == 'push' && startsWith(github.ref_name, 'release/')
+    name: ci/smoke # 🔎 보호규칙에서 요구하는 체크 이름
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up Python # Python 3.12
+        uses: actions/setup-python@v5
+        with:
+          python-version: ${{ env.PY_VERSION }}
+
+      - name: Cache pip # 의존성 설치 캐시
+        uses: actions/cache@v4
+        with:
+          path: ~/.cache/pip
+          key: ${{ runner.os }}-py${{ env.PY_VERSION }}-${{ hashFiles('constraints.txt','requirements.txt','requirements-dev.txt') }}
+          restore-keys: ${{ runner.os }}-py${{ env.PY_VERSION }}-
+
+      - name: Install deps (smoke) # 운영+개발 의존성 + 공통 제약 적용
+        run: |
+          python -m pip install --upgrade pip
+          pip install -r requirements.txt -r requirements-dev.txt -c constraints.txt
+
+      - name: Run smoke tests # @pytest.mark.smoke 우선, 없으면 전체 실행
+        run: pytest -q -m "smoke" || pytest -q
+
+  # ------------------------------------------------------
+  # 2) 태그 & 릴리스 (release/x.y.z → main PR 머지 시)
+  # ------------------------------------------------------
+  tag:
+    if: >
+      github.event_name == 'pull_request' &&
+      github.event.action == 'closed' &&
+      github.event.pull_request.merged == true &&
+      startsWith(github.event.pull_request.head.ref, 'release/')
+    name: Tag & GitHub Release
+    runs-on: ubuntu-latest
+    steps:
+      - name: Extract & validate version # 브랜치명에서 x.y.z 추출 + SemVer 검증
+        id: ver
+        shell: bash
+        run: |
+          BRANCH="${{ github.event.pull_request.head.ref }}"   # e.g. release/1.2.3
+          VERSION="${BRANCH#release/}"
+          [[ "$VERSION" =~ ^[0-9]+\.[0-9]+\.[0-9]+$ ]] || { echo "Invalid version: $VERSION"; exit 1; }
+          echo "version=${VERSION}" >> "$GITHUB_OUTPUT"
+
+      - name: Checkout (full history) # 태깅을 위해 전체 히스토리 확보
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Ensure tag does not already exist # 중복 태그 방지
+        id: tagcheck
+        shell: bash
+        run: |
+          TAG="v${{ steps.ver.outputs.version }}"
+          if git rev-parse -q --verify "refs/tags/${TAG}" >/dev/null; then
+            echo "exists=true" >> "$GITHUB_OUTPUT"
+          else
+            echo "exists=false" >> "$GITHUB_OUTPUT"
+          fi
+
+      - name: Create tag # 병합 커밋에 태그 생성/푸시
+        if: steps.tagcheck.outputs.exists == 'false'
+        shell: bash
+        run: |
+          TAG="v${{ steps.ver.outputs.version }}"
+          COMMIT="${{ github.event.pull_request.merge_commit_sha }}"
+          git tag "${TAG}" "${COMMIT}"
+          git push origin "${TAG}"
+
+      - name: Create GitHub Release # 릴리스 발행(릴리스 노트 자동)
+        if: steps.tagcheck.outputs.exists == 'false'
+        uses: softprops/action-gh-release@v2
+        with:
+          tag_name: "v${{ steps.ver.outputs.version }}"
+          name: "Flueman API v${{ steps.ver.outputs.version }}"
+          generate_release_notes: true
