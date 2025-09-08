@@ -2,7 +2,7 @@
 
 ## 📌 프로젝트 소개
 
-Flueman(플루맨, Fluent Human) API는 **디지털 휴먼 AI 가상비서 서비스**를 위한  
+Flueman(플루맨, Fluent Human) API는 **디지털 휴먼 AI 가상비서 서비스**를 위한
 **AI 모델 배포용 API 서버**입니다.
 
 - **목표**: 사용자 요청을 빠르고 안전하게 처리, AI 예측 결과 효율적 제공
@@ -132,10 +132,16 @@ flueman-api/
 #### 로컬 개발
 
 ```bash
-# 운영 + 개발 의존성 설치
-pip install -r requirements.txt -r requirements-dev.txt
+# 로컬 개발자 (운영 + 개발 모두 )
+pip install -r requirements.txt -r requirements-dev.txt -c constraints.txt
+
+# 운영/배포 (컨테이너, 서버)
+pip install -r requirements.txt -c constraints.txt
 
 # pre-commit 훅 설치
 pre-commit install
 pre-commit install --hook-type commit-msg
+
+# 레포 전체에 한 번 적용(자동 포맷/정렬 + 오류 리포트 확인)
+pre-commit run --all-files
 ```

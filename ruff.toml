@@ -1,0 +1,10 @@
+line-length = 100
+target-version = "py312"
+
+[format]
+quote-style = "double"
+indent-style = "space"
+
+[lint]
+select = ["E", "F", "I", "B", "UP", "ANN", "W", "C90", "ISC", "COM"]
+ignore = ["ANN101", "ANN102"]  # 필요 시 조정
