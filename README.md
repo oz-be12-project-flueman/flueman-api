@@ -51,25 +51,37 @@ Flueman(플루맨, Fluent Human) API는 **디지털 휴먼 AI 가상비서 서�
 
 ```bash
 flueman-api/
+ ├─ .github/                                  # 🔹 GitHub Actions 워크플로
+ │  └─ workflows/
+ │      ├─ ci.yml                             # PR용 lint/test/build
+ │      ├─ release-smoke.yml                  # release/* 스모크 테스트
+ │      └─ tag-on-merge.yml                   # release → main 머지 시 태그/릴리스
  ├─ app/
- │  ├─ core/              # 전역 설정/보안/DB/로깅
- │  ├─ shared/            # 재사용 유틸/인터페이스
- │  ├─ features/          # 기능별 모듈
- │  │   ├─ auth/          # 인증/로그인
- │  │   ├─ users/         # 사용자 관리
- │  │   ├─ models_registry/ # 모델 메타 관리
- │  │   ├─ inference/     # 추론 API
- │  │   ├─ datasets/      # 데이터 업로드/전처리
- │  │   ├─ feedback/      # 피드백 관리
- │  │   ├─ monitoring/    # 모니터링/로그 조회
- │  │   └─ health/        # 헬스체크
- │  ├─ main.py            # FastAPI 엔트리포인트
- │  └─ middleware.py      # CORS, 로깅, 에러핸들러
- ├─ migrations/           # Alembic 마이그레이션
- ├─ tests/                # 기능별 테스트
- ├─ docker/               # Dockerfile, compose 등
+ │  ├─ core/                                  # 전역 설정/보안/DB/로깅
+ │  ├─ shared/                                # 재사용 유틸/인터페이스
+ │  ├─ features/                              # 기능별 모듈
+ │  │   ├─ auth/                              # 인증/로그인
+ │  │   ├─ users/                             # 사용자 관리
+ │  │   ├─ models_registry/                   # 모델 메타 관리
+ │  │   ├─ inference/                         # 추론 API
+ │  │   ├─ datasets/                          # 데이터 업로드/전처리
+ │  │   ├─ feedback/                          # 피드백 관리
+ │  │   ├─ monitoring/                        # 모니터링/로그 조회
+ │  │   └─ health/                            # 헬스체크
+ │  ├─ main.py                                # FastAPI 엔트리포인트
+ │  └─ middleware.py                          # CORS, 로깅, 에러핸들러
+ ├─ docker/                                   # Dockerfile, compose 등
+ ├─ migrations/                               # Alembic 마이그레이션
+ ├─ tests/                                    # 기능별 테스트
+ ├─ requirements.txt                          # 운영 의존성
+ ├─ requirements-dev.txt                      # 개발/테스트 의존성
+ ├─ constraints.txt                           # 공통 버전 제약
+ ├─ .pre-commit-config.yaml                   # pre-commit 훅 설정
+ ├─ ruff.toml                                 # ruff 포맷/린트 규칙
+ ├─ mypy.ini                                  # 타입 체커 설정
  ├─ pyproject.toml
  └─ README.md
+
 ```
 
 ---
