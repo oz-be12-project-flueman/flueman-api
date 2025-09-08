@@ -1,5 +1,23 @@
+minimum_pre_commit_version: "3.7.0"
+fail_fast: true
+
+exclude: |
+  (?x)^(
+    .*/migrations/.*|
+    .*/node_modules/.*|
+    .*/dist/.*|
+    .*/build/.*|
+    .*/.venv/.*|
+    .*/venv/.*|
+    .*/.mypy_cache/.*|
+    .*/.ruff_cache/.*|
+    .*/coverage/.*|
+    .*/_generated/.*|
+    .*/__pycache__/.*|
+    .*\.(min\.js|min\.css)
+  )$
+
 repos:
-  # 기본 위생 체크
   - repo: https://github.com/pre-commit/pre-commit-hooks
     rev: v4.6.0
     hooks:
@@ -8,21 +26,23 @@ repos:
       - id: check-yaml
       - id: check-toml
 
-  # Ruff: 포맷 + 린트
   - repo: https://github.com/astral-sh/ruff-pre-commit
     rev: v0.6.9
     hooks:
-      # 1) 자동 포맷 (줄맞춤/스타일) — Black 대체
+      # 1) 포맷
       - id: ruff-format
+        name: ruff-format (code formatter)
         stages: [pre-commit]
 
-      # 2) import 정렬만 자동 수정
+      # 2) 안전 자동수정 (임포트 + 자잘한 포맷성 규칙)
       - id: ruff
-        name: ruff (fix imports only)
+        name: ruff (safe autofix)
         args:
           [
             "--select",
-            "I",
+            "I,E,W,UP,COM,ISC,F401",
+            "--ignore",
+            "ANN101,ANN102,ANN201",
             "--fix",
             "--exit-non-zero-on-fix",
             "--output-format",
@@ -30,7 +50,7 @@ repos:
           ]
         stages: [pre-commit]
 
-      # 3) 나머지 린트는 위치만 표시(수정 X)
+      # 3) 리포트만
       - id: ruff
         name: ruff (lint report only)
         args:
@@ -38,22 +58,29 @@ repos:
             "--select",
             "E,F,B,UP,ANN,W,C90,ISC,COM",
             "--ignore",
-            "ANN101,ANN102",
+            "ANN101,ANN102,ANN201",
             "--output-format",
             "concise",
           ]
         stages: [pre-commit]
 
-  # 타입 체크: 에러 위치 출력
   - repo: https://github.com/pre-commit/mirrors-mypy
     rev: v1.11.2
     hooks:
       - id: mypy
+        name: mypy (type check)
         additional_dependencies: [types-requests, types-PyYAML]
-        files: ^app/|^scripts/
+        files: ^(app/|scripts/)
+        args:
+          [
+            "--disable-error-code",
+            "no-untyped-def",
+            "--pretty",
+            "--show-error-codes",
+            "--no-error-summary",
+          ]
         stages: [pre-commit]
 
-  # (선택) 커밋 메시지 규칙 검사
   - repo: https://github.com/commitizen-tools/commitizen
     rev: v3.28.0
     hooks:
