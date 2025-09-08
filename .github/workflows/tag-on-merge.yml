@@ -1,0 +1,47 @@
+# 목적: release/x.y.z(release/1.0.0) → main PR이 머지되면 자동으로 태그 vX.Y.Z 생성 및 GitHub Release 발행
+# 트리거: main 브랜치로의 PR closed(merged == true) 이벤트
+# 주의: release 브랜치명은 반드시 release/x.y.z (SemVer) 형식 준수
+
+name: Tag & Release on Merge
+
+on:
+  pull_request:
+    types: [closed] # PR이 닫힐 때(머지 포함)
+    branches: [main] # 대상: main
+
+permissions:
+  contents: write # 태그/릴리스 생성을 위해 write 필요
+  pull-requests: read
+
+jobs:
+  tag:
+    # PR이 머지되었고, 소스 브랜치가 release/* 일 때만 실행
+    if: >
+      github.event.pull_request.merged == true &&
+      startsWith(github.event.pull_request.head.ref, 'release/')
+    runs-on: ubuntu-latest
+    steps:
+      - name: Extract version from branch # 브랜치명에서 x.y.z 추출
+        id: ver
+        run: |
+          BRANCH="${{ github.event.pull_request.head.ref }}"
+          VERSION="${BRANCH#release/}"
+          echo "version=${VERSION}" >> $GITHUB_OUTPUT
+
+      - name: Checkout # 코드 체크아웃
+        uses: actions/checkout@v4
+
+      - name: Create tag # 병합 커밋에 태그 생성/푸시
+        run: |
+          git config user.name "github-actions"
+          git config user.email "github-actions@users.noreply.github.com"
+          git fetch --prune --unshallow || true
+          git tag "v${{ steps.ver.outputs.version }}" ${{ github.event.pull_request.merge_commit_sha }}
+          git push origin "v${{ steps.ver.outputs.version }}"
+
+      - name: Create GitHub Release # 릴리스 발행(노트 자동)
+        uses: softprops/action-gh-release@v2
+        with:
+          tag_name: "v${{ steps.ver.outputs.version }}"
+          name: "Flueman API v${{ steps.ver.outputs.version }}"
+          generate_release_notes: true
