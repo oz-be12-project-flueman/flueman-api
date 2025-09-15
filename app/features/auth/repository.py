@@ -1,7 +1,12 @@
-from datetime import datetime
+# app/features/auth/repository.py
+from __future__ import annotations
 
-from sqlalchemy import insert, select, update
+from datetime import datetime
+from typing import cast
+
+from sqlalchemy import ScalarResult, insert, select, update
 from sqlalchemy.dialects.mysql import BINARY, BOOLEAN, CHAR, JSON, VARCHAR
+from sqlalchemy.engine import Result  # ★ 제네릭 Result 사용
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import DeclarativeBase, Mapped, mapped_column
 
@@ -28,7 +33,7 @@ class Session(Base):
     __tablename__ = "session"
     id: Mapped[bytes] = mapped_column(BINARY(16), primary_key=True)
     username: Mapped[bytes] = mapped_column(BINARY(16), nullable=False)
-    jti: Mapped[str] = mapped_column(CHAR(36), nullable=False)  # access jti 혹은 세션 식별자
+    jti: Mapped[str] = mapped_column(CHAR(36), nullable=False)
     ip_address: Mapped[str | None] = mapped_column(VARCHAR(45))
     user_agent: Mapped[str | None] = mapped_column(VARCHAR(255))
     expires_at: Mapped[datetime]
@@ -56,12 +61,14 @@ class AuthRepository:
 
     # ---- Users ----
     async def get_user_by_email(self, email: str) -> User | None:
-        stmt = select(User).where(User.email == email, User.is_active == True)  # noqa: E712
-        return (await self.session.execute(stmt)).scalar_one_or_none()
+        stmt = select(User).where(User.email == email, User.is_active)  # noqa: E712
+        res: ScalarResult[User] = await self.session.scalars(stmt)  # ★ scalars() 사용
+        return res.one_or_none()
 
     async def get_user_by_uuid(self, user_uuid: str) -> User | None:
         stmt = select(User).where(User.id == uuid_to_bin(user_uuid))
-        return (await self.session.execute(stmt)).scalar_one_or_none()
+        res: ScalarResult[User] = await self.session.scalars(stmt)  # ★ scalars() 사용
+        return res.one_or_none()
 
     # ---- Session ----
     async def create_session(
@@ -92,16 +99,20 @@ class AuthRepository:
         )
         return str(sid)
 
-    async def revoke_session_by_jti(self, jti: str):
+    async def revoke_session_by_jti(self, jti: str) -> None:
         await self.session.execute(
             update(Session)
             .where(Session.jti == jti, Session.revoked_at.is_(None))
-            .values(is_active=False, revoked_at=datetime.utcnow(), updated_at=datetime.utcnow()),
+            .values(
+                is_active=False,
+                revoked_at=datetime.utcnow(),
+                updated_at=datetime.utcnow(),
+            ),
         )
 
     # ---- API Key ----
     async def get_apikey_owner(self, key_hash: str) -> User | None:
-        # 해시값으로 API 키 소유자 조회 (JOIN or 두 단계 조회 중 택1)
+        # JOIN 결과 타입을 명시적으로 지정: (ApiKey, User)
         stmt = (
             select(ApiKey, User)
             .join(User, User.id == ApiKey.username)
@@ -110,8 +121,9 @@ class AuthRepository:
                 ApiKey.is_revoked == False,  # noqa: E712
             )
         )
-        row = (await self.session.execute(stmt)).first()
-        if not row:
+        res: Result[tuple[ApiKey, User]] = await self.session.execute(stmt)  # ★ 타입 명시
+        row = res.first()
+        if row is None:
             return None
         _, user = row
-        return user
+        return cast(User, user)  # ★ Any → User

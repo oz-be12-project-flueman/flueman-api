@@ -1,5 +1,5 @@
-import uuid
 from datetime import UTC, datetime, timedelta
+import uuid
 
 from fastapi import HTTPException, status
 from passlib.context import CryptContext
@@ -54,7 +54,7 @@ class AuthService:
         refresh, refresh_jti, _ = create_refresh_token(username=str(uuid.UUID(bytes=user.id)))
 
         # 세션 기록(access jti 기준) 및 만료
-        access_exp = _utcnow() + timedelta(minutes=settings.ACCESS_TOKEN_EXPIRE_MINUTES)
+        access_exp = _utcnow() + timedelta(minutes=settings.JWT_ACCESS_EXPIRES_MIN)
         await self.repo.create_session(
             user_uuid=str(uuid.UUID(bytes=user.id)),
             jti=access_jti,

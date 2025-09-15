@@ -1,6 +1,6 @@
 from datetime import UTC, datetime, timedelta
 
-from jose import jwt
+import jwt
 from passlib.context import CryptContext
 
 from .config import settings
@@ -24,5 +24,5 @@ def create_access_token(sub: str, minutes: int | None = None) -> str:
     return jwt.encode(payload, settings.JWT_SECRET, algorithm=settings.JWT_ALGORITHM)
 
 
-def decode_token(token: str) -> dict:
-    return jwt.decode(token, settings.JWT_SECRET_KEY, algorithms=[settings.JWT_ALGORITHM])
+def decode_token(token: str):
+    return jwt.decode(token, settings.JWT_SECRET, algorithms=[settings.JWT_ALGORITHM])

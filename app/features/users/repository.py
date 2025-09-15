@@ -1,3 +1,4 @@
+from collections.abc import Sequence
 from typing import TypedDict, Unpack
 
 from sqlalchemy import func, select
@@ -35,7 +36,7 @@ class UsersRepository:
         stmt = select(User).where(User.email == email)
         return (await self.session.execute(stmt)).scalar_one_or_none()
 
-    async def list(self, page: int, page_size: int) -> tuple[list[User], int]:
+    async def list(self, page: int, page_size: int) -> tuple[Sequence[User], int]:
         stmt = select(User).offset((page - 1) * page_size).limit(page_size)
         items = (await self.session.execute(stmt)).scalars().all()
         total = (await self.session.execute(select(func.count()).select_from(User))).scalar_one()

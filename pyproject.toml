@@ -1,0 +1,117 @@
+# ──────────────────────────────────────────────────────────────────────────────
+# Flueman API: pyproject.toml (단일 소스 설정)
+# - uv(의존성), Ruff(포맷/린트), mypy/pytest/coverage 설정 포함
+# - setuptool 패키지 탐색은 app/만 패키지로 제한(루트 평면 레이아웃 유지 시 필수)
+# ──────────────────────────────────────────────────────────────────────────────
+[project]
+name = "flueman-api"
+version = "0.1.0"
+description = "Flueman API server (FastAPI + MySQL + S3 + JWT)"
+readme = "README.md"
+requires-python = ">=3.12,<3.13"
+dependencies = [
+  # ─ 애플리케이션 런타임 의존성 ─
+  "fastapi>=0.115",
+  "uvicorn[standard]>=0.30",
+  "sqlalchemy[asyncio]>=2.0",
+  "pymysql>=1.1",
+  "alembic>=1.13",
+  "pydantic>=2.8",
+  "pyjwt>=2.10.1",
+  "passlib[bcrypt]>=1.7",
+  "boto3>=1.34", # S3
+  "pydantic-settings>=2.10.1",
+  "types-passlib>=1.7.7.20250602",
+  "tortoise>=0.1.1",
+  "tortoise-orm==0.25.1",
+  "httpx>=0.27",
+]
+
+# ──────────────────────────────────────────────────────────────────────────────
+# uv 의존성 그룹(개발도구) — `uv sync --group dev` 로 설치
+# ──────────────────────────────────────────────────────────────────────────────
+[dependency-groups]
+dev = [
+  "pytest>=8.3",
+  "pytest-cov>=5.0",
+  "ruff==0.6.9",
+  # (선택) black/flake8/isort/autoflake는 Ruff와 기능 중복/충돌 가능 → 필요 시만 추가
+  "black>=24.10",
+  # "flake8>=7.1",
+  "isort>=5.13",
+  "autoflake>=2.3",
+  "mypy>=1.11",
+  "types-requests",
+  "types-PyYAML",
+  "commitizen>=3.28",
+  "pre-commit>=3.7",
+
+]
+
+# ──────────────────────────────────────────────────────────────────────────────
+# setuptools: 패키지 디스커버리 범위 제한 (루트 평면 레이아웃 사용 시 필수)
+#   - uv editable 빌드 시 app 외 폴더(docker, migrations 등)가 패키지로 잡히는 문제 방지
+# ──────────────────────────────────────────────────────────────────────────────
+[tool.setuptools]
+package-dir = { "" = "." }
+
+[tool.setuptools.packages.find]
+where = ["."]
+include = ["app*"]          # app 패키지만 포함
+exclude = [
+  "tests*", "docker*", "migrations*", "infra*", "scripts*",
+  ".*", "__pycache__", "dist", "build",
+]
+
+# ──────────────────────────────────────────────────────────────────────────────
+# Ruff: 포맷 + 린트 표준 구성 (로컬/CI/IDE 동일 적용)
+#   - 라인 길이 100, 포매터 충돌 규칙 비활성화(COM812/ISC001)
+#   - 실제 규칙 선택/무시는 [tool.ruff.lint]에서 일원화
+# ──────────────────────────────────────────────────────────────────────────────
+[tool.ruff]
+line-length = 100
+target-version = "py312"
+exclude = [
+  "migrations", ".venv", "venv", ".mypy_cache", ".ruff_cache",
+  "dist", "build", "__pycache__",
+]
+
+[tool.ruff.format]
+quote-style = "double"
+indent-style = "space"
+
+[tool.ruff.lint]
+# 자주 쓰는 규칙 세트(에러/포맷/업그레이드/버그/타입힌트/경고/복잡도/임포트)
+select = ["E","F","I","B","UP","ANN","W","C90","ISC","COM"]
+# 프로젝트 합의에 따라 무시
+ignore = ["E203","E501","ANN101","ANN102","ANN201"]
+fixable = ["ALL"]            # 자동 수정 가능한 규칙은 모두 자동수정 허용
+extend-ignore = ["COM812", "ISC001"]  # 포매터와 충돌 가능 규칙 전역 비활성화
+
+[tool.ruff.lint.isort]
+known-first-party = ["app"]
+force-sort-within-sections = true
+
+# ──────────────────────────────────────────────────────────────────────────────
+# mypy / pytest / coverage
+# ──────────────────────────────────────────────────────────────────────────────
+[tool.mypy]
+python_version = "3.12"
+packages = ["app"]          # 분석 범위(패키지 베이스 명확화)
+explicit_package_bases = true
+warn_unused_ignores = true
+warn_redundant_casts = true
+warn_return_any = true
+no_implicit_optional = true
+strict_equality = true
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+addopts = "-q --maxfail=1 --disable-warnings --cov=app --cov-report=term-missing"
+
+[tool.coverage.run]
+source = ["app"]            # 테스트 파일 제외 대신 소스 경로를 명시(보다 안전)
+branch = true
+
+[tool.coverage.report]
+skip_empty = true

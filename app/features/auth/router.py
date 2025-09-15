@@ -47,8 +47,8 @@ async def refresh(payload: RefreshIn, session: DbSess) -> AccessOnlyOut:
 
 @router.post("/logout")
 async def logout(
+    session: DbSess,  # Annotated 사용 시 기본값은 필요 없음; 명시만 유지
     authorization: str | None = Header(default=None),
-    session: DbSess = None,  # Annotated 사용 시 기본값은 필요 없음; 명시만 유지
 ):
     if not authorization or not authorization.startswith("Bearer "):
         raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="missing bearer token")
@@ -60,8 +60,8 @@ async def logout(
 
 @router.get("/me", response_model=MeOut)
 async def me(
+    session: DbSess,
     authorization: str | None = Header(default=None),
-    session: DbSess = None,
 ) -> MeOut:
     if not authorization or not authorization.startswith("Bearer "):
         raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="missing bearer token")

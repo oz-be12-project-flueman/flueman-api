@@ -1,6 +1,6 @@
-import uuid
 from datetime import UTC, datetime, timedelta
 from typing import Any
+import uuid
 
 import jwt
 
@@ -31,12 +31,12 @@ def create_jwt(
     }
     if extra:
         payload.update(extra)
-    return jwt.encode(payload, settings.SECRET_KEY, algorithm=ALGO)
+    return jwt.encode(payload, settings.JWT_SECRET, algorithm=ALGO)
 
 
-def decode_jwt(token: str) -> dict[str, Any]:
+def decode_jwt(token: str):
     # 필요 시 audience/issuer 검증 옵션 추가
-    return jwt.decode(token, settings.SECRET_KEY, algorithms=[ALGO])
+    return jwt.decode(token, settings.JWT_SECRET, algorithms=[ALGO])
 
 
 def create_access_token(
@@ -45,7 +45,7 @@ def create_access_token(
     minutes: int | None = None,
     session_id: str | None = None,
 ) -> tuple[str, str, int]:
-    ttl = minutes or settings.ACCESS_TOKEN_EXPIRE_MINUTES
+    ttl = minutes or settings.JWT_ACCESS_EXPIRES_MIN
     jti = str(uuid.uuid4())
     token = create_jwt(
         sub=username,

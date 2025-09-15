@@ -4,7 +4,13 @@ from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker, create_asyn
 
 from app.core.config import settings
 
-engine = create_async_engine(settings.MYSQL_DSN, pool_pre_ping=True)
+mysql_dsn = (
+    "mysql+pymysql://"
+    f"{settings.DB_USER}:{settings.DB_PASSWORD}"
+    f"@{settings.DB_HOST}:{settings.DB_PORT}/{settings.DB_NAME}"
+    "?charset=utf8mb4"
+)
+engine = create_async_engine(mysql_dsn, pool_pre_ping=True)
 AsyncSessionLocal = async_sessionmaker(engine, expire_on_commit=False, autoflush=False)
 
 
