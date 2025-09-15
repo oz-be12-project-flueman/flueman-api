@@ -84,6 +84,7 @@ jobs:
       - name: Install deps # 테스트에 필요한 의존성 설치
         run: |
           uv sync --frozen
+          uv pip install -e .
 
       - name: Install MySQL client # mysqladmin 사용을 위한 클라이언트 설치(우분투 러너 기본 미포함)
         run: |
