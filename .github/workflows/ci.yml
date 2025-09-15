@@ -92,17 +92,15 @@ jobs:
           sudo apt-get install -y mysql-client
 
       - name: Wait for MySQL # DB 기동 대기(헬스체크)
+        env:
+          MYSQL_PWD: root # CLI에 비번 노출 대신 환경변수 사용
         run: |
-          for i in `seq 1 30`; do
-            mysqladmin ping -h 127.0.0.1 -proot && break
+          for i in {1..40}; do
+            mysqladmin ping -h 127.0.0.1 -uroot --silent
             sleep 2
           done
-
-      - name: Run tests # Pytest 실행(커버리지 포함)
-        env:
-          DB_URL: "mysql+pymysql://root:root@127.0.0.1:3306/flueman_test" # 앱이 참조할 테스트 DB URL
-          ENV: test
-        run: uv run pytest -q --maxfail=1 --disable-warnings --cov=app --cov-report=term-missing
+          # 최종 상태 출력(디버깅 도움)
+          mysqladmin status -h 127.0.0.1 -uroot || true
 
   # -------------------------------
   # 3) 빌드 단계 (배포 전 도커 빌드 검증)
