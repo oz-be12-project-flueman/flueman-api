@@ -5,6 +5,7 @@ from sqlalchemy import text
 
 from .core.config import settings
 from .core.db import engine
+from .features.auth.router import router as auth_router
 from .features.health.router import router as health_router
 from .middleware import setup_middlewares
 
@@ -32,7 +33,7 @@ def create_app() -> FastAPI:
 
     # 각 기능(feature) 라우터 등록
     app.include_router(health_router)
-    # app.include_router(auth_router)  # 추후 추가
+    app.include_router(auth_router)
 
     return app
 
