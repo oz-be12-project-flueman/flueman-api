@@ -1,10 +1,13 @@
 line-length = 100
 target-version = "py312"
 
+# 포매터와 충돌 가능 규칙 비활성화
+extend-ignore = ["COM812", "ISC001"]
+
 [format]
 quote-style = "double"
 indent-style = "space"
 
 [lint]
 select = ["E", "F", "I", "B", "UP", "ANN", "W", "C90", "ISC", "COM"]
-ignore = ["ANN101", "ANN102"]  # 필요 시 조정
+ignore = ["E203", "E501", "ANN101", "ANN102", "ANN201"]
