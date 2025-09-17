@@ -1,72 +1,83 @@
 # ──────────────────────────────────────────────────────────────────────────────
 # Flueman API: pyproject.toml (단일 소스 설정)
-# - uv(의존성), Ruff(포맷/린트), mypy/pytest/coverage 설정 포함
-# - setuptool 패키지 탐색은 app/만 패키지로 제한(루트 평면 레이아웃 유지 시 필수)
+# - uv(의존성 관리), Ruff(포맷/린트), mypy/pytest/coverage 설정 포함
+# - setuptools 패키지 탐색을 app/*로 한정(루트 평면 레이아웃일 때 필수)
 # ──────────────────────────────────────────────────────────────────────────────
 [project]
-name = "flueman-api"
-version = "0.1.0"
+name = "flueman-api"                 # 패키지 이름(배포/메타용)
+version = "0.1.0"                    # 버전
 description = "Flueman API server (FastAPI + MySQL + S3 + JWT)"
 readme = "README.md"
-requires-python = ">=3.12,<3.13"
+requires-python = ">=3.12,<3.13"     # Python 버전 범위 고정
+
+# 런타임 의존성(앱 실행에 필요한 패키지)
 dependencies = [
-  # ─ 애플리케이션 런타임 의존성 ─
+  # ─ 웹/프레임워크 ─
   "fastapi>=0.115",
   "uvicorn[standard]>=0.30",
-  "sqlalchemy[asyncio]>=2.0",
-  "pymysql>=1.1",
-  "alembic>=1.13",
+
+  # ─ DB/ORM/마이그레이션 ─
+  "sqlalchemy[asyncio]>=2.0",        # (선택) SQLAlchemy가 필요한 부분 있을 때
+  "pymysql>=1.1",                    # MySQL 드라이버
+  "alembic>=1.13",                   # (선택) SQLAlchemy 마이그레이션
+  "tortoise-orm==0.25.1",            # Tortoise ORM 고정(타입/호환성 안정)
+
+  # ─ 설정/스키마 ─
   "pydantic>=2.8",
+  "pydantic-settings>=2.10.1",
+  "email-validator>=2.3.0",
+
+  # ─ 인증/암호화 ─
   "pyjwt>=2.10.1",
   "passlib[bcrypt]>=1.7",
-  "boto3>=1.34", # S3
-  "pydantic-settings>=2.10.1",
+  "cryptography>=45.0.7",            # MySQL caching_sha2_password 대응 등
+
+  # ─ 외부 연동 ─
+  "boto3>=1.34",                     # S3 클라이언트
+  "httpx>=0.27",                     # 비동기 HTTP 클라이언트
+
+  # ─ MySQL 비동기 풀 ─
+  "aiomysql>=0.2",
+
+  # ─ 타입 힌트 부가 ─
   "types-passlib>=1.7.7.20250602",
-  "tortoise>=0.1.1",
-  "tortoise-orm==0.25.1",
-  "httpx>=0.27",
 ]
 
 # ──────────────────────────────────────────────────────────────────────────────
-# uv 의존성 그룹(개발도구) — `uv sync --group dev` 로 설치
+# 개발 전용 의존성 그룹 — `uv sync --group dev` 로 설치
 # ──────────────────────────────────────────────────────────────────────────────
 [dependency-groups]
 dev = [
-  "pytest>=8.3",
-  "pytest-cov>=5.0",
-  "ruff==0.6.9",
-  # (선택) black/flake8/isort/autoflake는 Ruff와 기능 중복/충돌 가능 → 필요 시만 추가
-  "black>=24.10",
-  # "flake8>=7.1",
-  "isort>=5.13",
-  "autoflake>=2.3",
-  "mypy>=1.11",
-  "types-requests",
-  "types-PyYAML",
-  "commitizen>=3.28",
-  "pre-commit>=3.7",
-
+  "pytest>=8.3",                     # 테스트 러너
+  "pytest-cov>=5.0",                 # 커버리지 플러그인(coverage 대체)
+  "ruff==0.6.9",                     # 포매터 + 린터(단일화)
+  "mypy>=1.11",                      # 정적 타입체커
+  "types-requests",                  # 타입 스텁(선택)
+  "types-PyYAML",                    # 타입 스텁(선택)
+  "commitizen>=3.28",                # 커밋 메시지 규칙
+  "pre-commit>=3.7",                 # 훅 관리
+  "aerich==0.7.2",                   # Tortoise 마이그레이션 도구
 ]
 
 # ──────────────────────────────────────────────────────────────────────────────
-# setuptools: 패키지 디스커버리 범위 제한 (루트 평면 레이아웃 사용 시 필수)
-#   - uv editable 빌드 시 app 외 폴더(docker, migrations 등)가 패키지로 잡히는 문제 방지
+# setuptools: 패키지 디스커버리 범위 제한
+#   - 루트에 docker/migrations/scripts 등이 있어도 app/*만 패키지로 인식
 # ──────────────────────────────────────────────────────────────────────────────
 [tool.setuptools]
 package-dir = { "" = "." }
 
 [tool.setuptools.packages.find]
 where = ["."]
-include = ["app*"]          # app 패키지만 포함
+include = ["app*"]                  # app 패키지만 포함
 exclude = [
   "tests*", "docker*", "migrations*", "infra*", "scripts*",
   ".*", "__pycache__", "dist", "build",
 ]
 
 # ──────────────────────────────────────────────────────────────────────────────
-# Ruff: 포맷 + 린트 표준 구성 (로컬/CI/IDE 동일 적용)
-#   - 라인 길이 100, 포매터 충돌 규칙 비활성화(COM812/ISC001)
-#   - 실제 규칙 선택/무시는 [tool.ruff.lint]에서 일원화
+# Ruff: 포맷 + 린트 표준 구성
+#   - ruff-format이 포매터 역할(black 대체)
+#   - ruff check가 린트/자동수정 담당(isort 역할 포함)
 # ──────────────────────────────────────────────────────────────────────────────
 [tool.ruff]
 line-length = 100
@@ -77,27 +88,26 @@ exclude = [
 ]
 
 [tool.ruff.format]
-quote-style = "double"
+quote-style = "double"              # 따옴표 스타일 통일
 indent-style = "space"
 
 [tool.ruff.lint]
-# 자주 쓰는 규칙 세트(에러/포맷/업그레이드/버그/타입힌트/경고/복잡도/임포트)
+# 에러/버그/업그레이드/타입힌트/복잡도/임포트 등 범용 규칙
 select = ["E","F","I","B","UP","ANN","W","C90","ISC","COM"]
-# 프로젝트 합의에 따라 무시
-ignore = ["E203","E501","ANN101","ANN102","ANN201"]
-fixable = ["ALL"]            # 자동 수정 가능한 규칙은 모두 자동수정 허용
-extend-ignore = ["COM812", "ISC001"]  # 포매터와 충돌 가능 규칙 전역 비활성화
+ignore = ["E203","E501","ANN101","ANN102","ANN201"]  # 프로젝트 컨벤션상 제외
+fixable = ["ALL"]                   # 자동수정 가능한 규칙은 모두 허용
+extend-ignore = ["COM812", "ISC001"]# 포매터와 충돌 가능 규칙 비활성화
 
 [tool.ruff.lint.isort]
-known-first-party = ["app"]
+known-first-party = ["app"]         # 우리 패키지 그룹 지정(임포트 정렬에 도움)
 force-sort-within-sections = true
 
 # ──────────────────────────────────────────────────────────────────────────────
-# mypy / pytest / coverage
+# mypy: 타입 체크 설정
 # ──────────────────────────────────────────────────────────────────────────────
 [tool.mypy]
 python_version = "3.12"
-packages = ["app"]          # 분석 범위(패키지 베이스 명확화)
+packages = ["app"]                  # 검사 범위(app/*)
 explicit_package_bases = true
 warn_unused_ignores = true
 warn_redundant_casts = true
@@ -105,13 +115,30 @@ warn_return_any = true
 no_implicit_optional = true
 strict_equality = true
 
+# ──────────────────────────────────────────────────────────────────────────────
+# pytest 설정
+#  - pythonpath = ["."] : 루트(.)를 경로에 추가해서 `from app...` 임포트 실패 방지
+#  - 커버리지는 pytest-cov 플러그인으로 수집(coverage와 중복 사용 금지)
+# ──────────────────────────────────────────────────────────────────────────────
 [tool.pytest.ini_options]
 testpaths = ["tests"]
 addopts = "-q --maxfail=1 --disable-warnings --cov=app --cov-report=term-missing"
+pythonpath = ["."]
 
+# ──────────────────────────────────────────────────────────────────────────────
+# coverage 설정(pytest-cov가 내부적으로 coverage 사용)
+# ──────────────────────────────────────────────────────────────────────────────
 [tool.coverage.run]
-source = ["app"]            # 테스트 파일 제외 대신 소스 경로를 명시(보다 안전)
+source = ["app"]                    # 소스 경로 지정(테스트 폴더 제외)
 branch = true
 
 [tool.coverage.report]
 skip_empty = true
+
+# ──────────────────────────────────────────────────────────────────────────────
+# Aerich (Tortoise 마이그레이션)
+# ──────────────────────────────────────────────────────────────────────────────
+[tool.aerich]
+tortoise_orm = "app.core.config.TORTOISE_ORM"   # Tortoise 설정 경로
+location = "./migrations"                       # 마이그레이션 저장 폴더
+src_folder = "./."                              # 소스 루트

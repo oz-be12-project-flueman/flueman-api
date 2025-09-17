@@ -1,0 +1,43 @@
+services:
+  db:
+    image: mysql:8.4
+    restart: always
+    env_file:
+      - .env
+    container_name: flueman-db-dev
+    environment:
+      MYSQL_ROOT_PASSWORD: ${DB_ROOT_PASSWORD}
+      MYSQL_USER: ${DB_USER}
+      MYSQL_PASSWORD: ${DB_PASSWORD}
+      MYSQL_DATABASE: ${DB_NAME}
+      TZ: Asia/Seoul
+    ports:
+      - "3306:3306"
+    volumes:
+      - db_data:/var/lib/mysql
+    healthcheck:
+      test: ["CMD", "mysqladmin", "ping", "-h", "127.0.0.1", "-p${DB_ROOT_PASSWORD}"]
+      interval: 5s
+      timeout: 3s
+      retries: 10
+
+  web:
+    container_name: flueman-web-dev
+    build:
+      context: .
+      dockerfile: ./docker/Dockerfile
+    command: /usr/local/bin/entrypoint.dev.sh
+    env_file:
+      - .env
+    ports:
+      - "8000:8000"
+    depends_on:
+      db:
+        condition: service_healthy
+    volumes:
+      - .:/app
+      - venv_cache:/app/.venv
+
+volumes:
+  db_data:
+  venv_cache:
