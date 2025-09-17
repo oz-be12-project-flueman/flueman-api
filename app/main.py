@@ -3,17 +3,31 @@ from __future__ import annotations
 import asyncio
 from contextlib import asynccontextmanager
 import os
-from typing import Any
+from typing import TYPE_CHECKING, Any, Protocol
 
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.openapi.utils import get_openapi
-from tortoise import Tortoise
 
-from .core.config import TORTOISE_ORM, settings
+from app.core.config import TORTOISE_ORM, settings
+
 from .features.auth.router import router as auth_router
 from .features.health.router import router as health_router
+from .features.users.router import router as user_router
 from .middleware import setup_middlewares
+
+# ── 여기부터 추가/변경 ─────────────────────────────────────────────
+if TYPE_CHECKING:
+
+    class _TortoiseProto(Protocol):
+        async def init(self, *, config: dict[str, Any]) -> None: ...
+        async def generate_schemas(self) -> None: ...
+        async def close_connections(self) -> None: ...
+
+    Tortoise: _TortoiseProto  # 타입 전용 선언(런타임 바인딩 아님)
+else:
+    from tortoise import Tortoise  # 런타임에만 임포트 (mypy는 건드리지 않음)
+# ──────────────────────────────────────────────────────────────────
 
 
 # ─────────────────────────────────────────────────────────────
@@ -116,6 +130,7 @@ def create_app() -> FastAPI:
     # 라우터 등록
     app.include_router(health_router)
     app.include_router(auth_router)
+    app.include_router(user_router)
 
     # OpenAPI 보안 스키마 주입 (메서드 재할당은 허용)
     app.openapi = lambda: build_openapi(app)  # type: ignore[method-assign]

@@ -2,7 +2,7 @@ from fastapi import FastAPI, Request, Response
 from fastapi.responses import JSONResponse
 from starlette.middleware.cors import CORSMiddleware
 
-from .core.config import settings
+from app.core.config import settings
 
 
 def setup_middlewares(app: FastAPI) -> None:

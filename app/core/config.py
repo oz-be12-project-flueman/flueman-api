@@ -1,9 +1,7 @@
 from __future__ import annotations
 
-from collections.abc import Mapping
 from dataclasses import dataclass
 import os
-from typing import Any
 
 from pydantic import Field, field_validator
 from pydantic_settings import BaseSettings, SettingsConfigDict
@@ -32,27 +30,22 @@ def _getenv_float(name: str, default: float) -> float:
 # (선택) Tortoise ORM 설정: 사용한다면 import 해서 쓰고,
 # 사용하지 않으면 이 블록은 무시해도 됨.
 # ─────────────────────────────────────────────────────────────
-_TORTOISE_DSN_DEFAULT = os.getenv(
-    "TORTOISE_DSN",
-    "mysql://user:pass@localhost:3306/flueman",
-)
-
-TORTOISE_ORM: Mapping[str, Any] = {
+TORTOISE_ORM = {
     "connections": {
-        "default": _TORTOISE_DSN_DEFAULT,
+        "default": os.getenv("TORTOISE_DSN"),
     },
     "apps": {
         "models": {
             "models": [
-                "app.features.auth",
-                "app.features.datasets",
-                "app.features.feedback",
-                "app.features.health",
-                "app.features.inference",
-                "app.features.models_registry",
-                "app.features.monitoring",
-                "app.features.preproc_jobs",
-                "app.features.users",
+                # "app.features.auth",
+                # "app.features.datasets",
+                # "app.features.feedback",
+                # "app.features.health",
+                # "app.features.inference",
+                # "app.features.models_registry",
+                # "app.features.monitoring",
+                # "app.features.preproc_jobs",
+                "app.features.users.models",
                 "aerich.models",
             ],
             "default_connection": "default",
@@ -130,20 +123,21 @@ class Settings(BaseSettings):
     JWT_ACCESS_EXPIRES_MIN: int = Field(..., alias="JWT_ACCESS_EXPIRES_MIN")
 
     # ─ DB (MySQL) ─
+    DB_ROOT_PASSWORD: str = Field(..., alias="DB_ROOT_PASSWORD")
     DB_USER: str = Field(..., alias="DB_USER")
     DB_PASSWORD: str = Field(..., alias="DB_PASSWORD")
     DB_HOST: str = Field(..., alias="DB_HOST")
     DB_PORT: int = Field(..., alias="DB_PORT")
     DB_NAME: str = Field(..., alias="DB_NAME")
+    TORTOISE_DSN: str = Field(..., alias="TORTOISE_DSN")
 
     @property
     def database_url(self) -> str:
         """
-        SQLAlchemy AsyncEngine용 DSN (PyMySQL)
-        예) mysql+pymysql://user:pass@host:3306/db?charset=utf8mb4
+        예) mysql+aiomysql://user:pass@host:3306/db?charset=utf8mb4
         """
         return (
-            "mysql+pymysql://"
+            "mysql+aiomysql://"
             f"{self.DB_USER}:{self.DB_PASSWORD}"
             f"@{self.DB_HOST}:{self.DB_PORT}/{self.DB_NAME}"
             "?charset=utf8mb4"
