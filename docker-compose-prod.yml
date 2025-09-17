@@ -1,0 +1,31 @@
+services:
+  db:
+    image: mysql:8.4
+    restart: unless-stopped
+    container_name: flueman-db-prod
+    environment:
+      MYSQL_ROOT_PASSWORD: ${DB_ROOT_PASSWORD}
+      MYSQL_USER: ${DB_USER}
+      MYSQL_PASSWORD: ${DB_PASSWORD}
+      MYSQL_DATABASE: ${DB_NAME}
+      TZ: Asia/Seoul
+    ports:
+      - "3306:3306"
+    volumes:
+      - /opt/flueman/mysql:/var/lib/mysql
+    healthcheck:
+      test: ["CMD", "mysqladmin", "ping", "-h", "127.0.0.1", "-p${DB_ROOT_PASSWORD}"]
+      interval: 5s
+      timeout: 3s
+      retries: 10
+
+  web:
+    container_name: flueman-web-prod
+    image: ghcr.io/OWNER/REPO:main   # Actions에서 갱신/덮어씀 (또는 :sha-xxxx)
+    env_file:
+      - /opt/flueman/.env            # EC2 내 안전한 경로
+    ports:
+      - "8000:8000"
+    depends_on:
+      - db
+    restart: unless-stopped

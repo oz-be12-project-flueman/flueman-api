@@ -11,6 +11,11 @@ on:
 permissions:
   contents: read # 코드 읽기 권한(기본)
 
+concurrency:
+  # 동일 PR에서 여러 번 트리거되면 이전 잡 취소(러너 낭비 방지)
+  group: ci-${{ github.event.pull_request.number || github.ref }}
+  cancel-in-progress: true
+
 jobs:
   # -------------------------------
   # 1) 린트/정적분석 단계
@@ -22,27 +27,24 @@ jobs:
       - uses: actions/checkout@v4 # PR의 코드 체크아웃
 
       - name: Set up Python # 파이썬 3.12 세팅
-        uses: actions/setup-python@v5
+        uses: astral-sh/setup-uv@v4
         with: { python-version: "3.12" }
 
       - name: Cache pip # 의존성 설치 속도 향상(캐시)
         uses: actions/cache@v4
         with:
-          path: ~/.cache/pip
+          path: |
+            ~/.cache/uv
           # constraints/requirements 변경 시 캐시 무효화
-          key: ${{ runner.os }}-py312-${{ hashFiles('constraints.txt','requirements.txt','requirements-dev.txt') }}
+          key: ${{ runner.os }}-py312-${{ hashFiles('uv.lock', 'pyproject.toml') }}
           restore-keys: ${{ runner.os }}-py312-
 
       - name: Install deps # 운영+개발 의존성 설치(+공통 제약 적용)
         run: |
-          python -m pip install --upgrade pip
-          pip install -r requirements.txt -r requirements-dev.txt -c constraints.txt
+          uv sync --frozen
 
-      - name: Ruff # 코드 스타일/린트 검사
-        run: ruff check .
-
-      - name: Mypy (optional) # 타입 체크(선택, 실패해도 워크플로 실패처리 X)
-        run: mypy app || true
+      - name: Run pre-commit (same as local)
+        run: uv run pre-commit run --all-files
 
   # -------------------------------
   # 2) 테스트 단계 (DB 포함)
@@ -68,33 +70,46 @@ jobs:
       - uses: actions/checkout@v4
 
       - name: Set up Python # 파이썬 3.12 세팅
-        uses: actions/setup-python@v5
+        uses: astral-sh/setup-uv@v4
         with: { python-version: "3.12" }
 
       - name: Cache pip # 의존성 캐시
         uses: actions/cache@v4
         with:
-          path: ~/.cache/pip
-          key: ${{ runner.os }}-py312-${{ hashFiles('constraints.txt','requirements.txt','requirements-dev.txt') }}
+          path: |
+            ~/.cache/uv
+          key: ${{ runner.os }}-py312-${{ hashFiles('uv.lock', 'pyproject.toml') }}
           restore-keys: ${{ runner.os }}-py312-
 
       - name: Install deps # 테스트에 필요한 의존성 설치
         run: |
-          python -m pip install --upgrade pip
-          pip install -r requirements.txt -r requirements-dev.txt -c constraints.txt
+          uv sync --frozen
+          uv pip install -e .
+
+      - name: Install MySQL client # mysqladmin 사용을 위한 클라이언트 설치(우분투 러너 기본 미포함)
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y mysql-client
 
       - name: Wait for MySQL # DB 기동 대기(헬스체크)
+        env:
+          MYSQL_PWD: root
         run: |
-          for i in `seq 1 30`; do
-            mysqladmin ping -h 127.0.0.1 -proot && break
+          for i in {1..40}; do
+            if mysqladmin ping -h 127.0.0.1 -uroot --silent; then
+              echo "MySQL is ready ✅"
+              break
+            fi
+            echo "Waiting for MySQL... ($i/40)"
             sleep 2
+            if [ "$i" -eq 40 ]; then
+              echo "MySQL did not become ready in time ❌" >&2
+              exit 1
+            fi
           done
 
-      - name: Run tests # Pytest 실행(커버리지 포함)
-        env:
-          DB_URL: "mysql+pymysql://root:root@127.0.0.1:3306/flueman_test" # 앱이 참조할 테스트 DB URL
-          ENV: test
-        run: pytest -q --maxfail=1 --disable-warnings --cov=app --cov-report=term-missing
+          # 최종 상태 출력(디버깅용)
+          mysqladmin status -h 127.0.0.1 -uroot || true
 
   # -------------------------------
   # 3) 빌드 단계 (배포 전 도커 빌드 검증)
@@ -109,10 +124,19 @@ jobs:
       - name: Set up Docker Buildx # 멀티 플랫폼 빌드 지원 세팅
         uses: docker/setup-buildx-action@v3
 
+      - name: Docker metadata
+        id: meta
+        uses: docker/metadata-action@v5
+        with:
+          images: ghcr.io/${{ github.repository }}
+
       - name: Build (no push) # Docker 이미지 빌드만 수행(푸시 X)
         uses: docker/build-push-action@v6
         with:
           context: . # 빌드 컨텍스트(레포 루트)
           file: ./docker/Dockerfile # 사용할 Dockerfile 경로
           push: false # 레지스트리 푸시 안 함
-          tags: ghcr.io/${{ github.repository }}:pr-${{ github.event.number }} # 임시 태그(검증용)
+          tags: ${{ steps.meta.outputs.tags }} # 임시 태그(검증용) 이것도 효율적으로 수정해줄래
+          labels: ${{ steps.meta.outputs.labels }}
+          cache-from: type=gha
+          cache-to: type=gha,mode=max

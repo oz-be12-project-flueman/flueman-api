@@ -20,6 +20,11 @@ permissions:
 env:
   PY_VERSION: "3.12"
 
+concurrency:
+  # 동일 release/* 또는 태그 작업의 중복 실행 방지
+  group: release-${{ github.ref || github.run_id }}
+  cancel-in-progress: true
+
 jobs:
   # ------------------------------------------------------
   # 1) 스모크 테스트 (release/* 브랜치 푸시 시)
