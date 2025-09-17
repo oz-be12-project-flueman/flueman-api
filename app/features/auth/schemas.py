@@ -3,7 +3,7 @@ from pydantic import BaseModel, EmailStr, Field
 
 # ----------- 입력 스키마 -----------
 class LoginIn(BaseModel):
-    email: EmailStr
+    username: str
     password: str = Field(min_length=8)
 
 
