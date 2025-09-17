@@ -26,61 +26,30 @@ repos:
       - id: check-yaml
       - id: check-toml
 
+  # ✅ ruff-format: 포매터(black 대체)
   - repo: https://github.com/astral-sh/ruff-pre-commit
     rev: v0.6.9
     hooks:
-      # 1) 포맷
       - id: ruff-format
-        name: ruff-format (code formatter)
-        stages: [pre-commit]
 
-      # 2) 안전 자동수정 (임포트 + 자잘한 포맷성 규칙)
+  # ✅ ruff: 린트(+ 자동고침)
+  - repo: https://github.com/astral-sh/ruff-pre-commit
+    rev: v0.6.9
+    hooks:
       - id: ruff
-        name: ruff (safe autofix)
-        args:
-          [
-            "--select",
-            "I,E,W,UP,COM,ISC,F401",
-            "--ignore",
-            "ANN101,ANN102,ANN201",
-            "--fix",
-            "--exit-non-zero-on-fix",
-            "--output-format",
-            "concise",
-          ]
-        stages: [pre-commit]
+        args: ["--fix", "--exit-non-zero-on-fix"]
 
-      # 3) 리포트만
-      - id: ruff
-        name: ruff (lint report only)
-        args:
-          [
-            "--select",
-            "E,F,B,UP,ANN,W,C90,ISC,COM",
-            "--ignore",
-            "ANN101,ANN102,ANN201",
-            "--output-format",
-            "concise",
-          ]
-        stages: [pre-commit]
-
-  - repo: https://github.com/pre-commit/mirrors-mypy
-    rev: v1.11.2
+  # mypy (type check)
+  - repo: local
     hooks:
       - id: mypy
-        name: mypy (type check)
-        additional_dependencies: [types-requests, types-PyYAML]
-        files: ^(app/|scripts/)
-        args:
-          [
-            "--disable-error-code",
-            "no-untyped-def",
-            "--pretty",
-            "--show-error-codes",
-            "--no-error-summary",
-          ]
-        stages: [pre-commit]
+        name: mypy (uv)
+        entry: uv run mypy --config=pyproject.toml
+        language: system
+        types: [python]
+        pass_filenames: false
 
+  # 커밋 메시지 규칙
   - repo: https://github.com/commitizen-tools/commitizen
     rev: v3.28.0
     hooks:

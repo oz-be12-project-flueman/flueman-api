@@ -54,33 +54,101 @@ flueman-api/
  ├─ .github/                                  # 🔹 GitHub Actions 워크플로
  │  └─ workflows/
  │      ├─ ci.yml                             # PR용 lint/test/build
- │      ├─ release-smoke.yml                  # release/* 스모크 테스트
- │      └─ tag-on-merge.yml                   # release → main 머지 시 태그/릴리스
+ │      ├─ release.yml                        # release → main 머지 시 태그/릴리스
+ │      └─ auto-delete-merge.yml              # feature/** → dev 머지 관련
+ │
  ├─ app/
- │  ├─ core/                                  # 전역 설정/보안/DB/로깅
- │  ├─ shared/                                # 재사용 유틸/인터페이스
+ │  ├─ core/                                  # 전역 설정/보안/DB/로깅/관찰성
+ │  ├─ shared/                                # 재사용 유틸/공용 스키마/헬퍼
  │  ├─ features/                              # 기능별 모듈
  │  │   ├─ auth/                              # 인증/로그인
+ │  │   │   ├─ router.py                      # 라우터 (엔드포인트)
+ │  │   │   ├─ service.py                     # 서비스 로직
+ │  │   │   ├─ repository.py                  # DB 접근 레이어
+ │  │   │   └─ schemas.py                     # Pydantic 스키마
  │  │   ├─ users/                             # 사용자 관리
+ │  │   │   ├─ router.py
+ │  │   │   ├─ service.py
+ │  │   │   ├─ repository.py
+ │  │   │   └─ schemas.py
  │  │   ├─ models_registry/                   # 모델 메타 관리
+ │  │   │   ├─ router.py
+ │  │   │   ├─ service.py
+ │  │   │   ├─ repository.py
+ │  │   │   └─ schemas.py
  │  │   ├─ inference/                         # 추론 API
+ │  │   │   ├─ router.py
+ │  │   │   ├─ service.py
+ │  │   │   ├─ repository.py
+ │  │   │   └─ schemas.py
  │  │   ├─ datasets/                          # 데이터 업로드/전처리
+ │  │   │   ├─ router.py
+ │  │   │   ├─ service.py
+ │  │   │   ├─ repository.py
+ │  │   │   └─ schemas.py
+ │  │   ├─ preproc_jobs/                      # 전처리 잡 관리
+ │  │   │   ├─ router.py
+ │  │   │   ├─ service.py
+ │  │   │   ├─ repository.py
+ │  │   │   └─ schemas.py
  │  │   ├─ feedback/                          # 피드백 관리
- │  │   ├─ monitoring/                        # 모니터링/로그 조회
+ │  │   │   ├─ router.py
+ │  │   │   ├─ service.py
+ │  │   │   ├─ repository.py
+ │  │   │   └─ schemas.py
+ │  │   ├─ monitoring/                        # 요청/응답 로그 조회
+ │  │   │   ├─ router.py
+ │  │   │   ├─ service.py
+ │  │   │   └─ repository.py
  │  │   └─ health/                            # 헬스체크
+ │  │       └─ router.py
+ │  │
  │  ├─ main.py                                # FastAPI 엔트리포인트
  │  └─ middleware.py                          # CORS, 로깅, 에러핸들러
- ├─ docker/                                   # Dockerfile, compose 등
+ │
  ├─ migrations/                               # Alembic 마이그레이션
- ├─ tests/                                    # 기능별 테스트
+ │  ├─ env.py
+ │  ├─ script.py.mako
+ │  └─ versions/
+ │
+ ├─ docker/                                   # Docker 관련 파일
+ │  ├─ Dockerfile                             # 컨테이너 빌드 정의
+ │  ├─ docker-compose.dev.yml                 # 로컬 개발(핫리로드/볼륨)
+ │  ├─ docker-compose.prod.yml                # 원격 EC2(읽기전용/리스타트)
+ │  └─ gunicorn_conf.py                       # 프로덕션용 Gunicorn 설정
+ │
+ ├─ infra/                                    # IaC/배포 설정
+ │  ├─ ecs/                                   # ECS/Fargate 태스크 정의
+ │  │   ├─ taskdef.json
+ │  │   ├─ service.json
+ │  │   └─ alb.json
+ │  └─ github-actions/                        # GH Actions 템플릿(옵션)
+ │      ├─ ci.yml
+ │      ├─ release.yml
+ │      └─ auto-delete-feature.yml            # 오래된 feature 브랜치 자동 정리
+ │
+ ├─ tests/                                    # 테스트 코드
+ │  ├─ conftest.py                            # 공용 픽스처
+ │  ├─ e2e/                                   # E2E 테스트
+ │  ├─ features/                              # 기능별 단위/통합 테스트
+ │  │   ├─ test_auth.py
+ │  │   ├─ test_users.py
+ │  │   └─ ...
+ │
+ ├─ scripts/                                  # 보조 스크립트
+ │  ├─ gen_ulid.py                            # UUID/ULID 생성기
+ │  └─ load_sample_data.py                    # 샘플 데이터 로드
+ │
+ ├─ .env.example                              # 환경변수 예시
+ ├─ pyproject.toml                            # 빌드/도구 설정
  ├─ requirements.txt                          # 운영 의존성
  ├─ requirements-dev.txt                      # 개발/테스트 의존성
  ├─ constraints.txt                           # 공통 버전 제약
- ├─ .pre-commit-config.yaml                   # pre-commit 훅 설정
- ├─ ruff.toml                                 # ruff 포맷/린트 규칙
  ├─ mypy.ini                                  # 타입 체커 설정
- ├─ pyproject.toml
- └─ README.md
+ ├─ ruff.toml                                 # ruff 포맷/린트 규칙
+ ├─ .pre-commit-config.yaml                   # pre-commit 훅 설정
+ └─ README.md                                 # 프로젝트 설명 문서
+
 
 ```
 
