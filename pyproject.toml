@@ -29,7 +29,8 @@ dependencies = [
 
   # ─ 인증/암호화 ─
   "pyjwt>=2.10.1",
-  "passlib[bcrypt]>=1.7",
+  "passlib[bcrypt]>=1.7.4",
+  "bcrypt==4.0.1",
   "cryptography>=45.0.7",            # MySQL caching_sha2_password 대응 등
 
   # ─ 외부 연동 ─
@@ -114,6 +115,7 @@ warn_redundant_casts = true
 warn_return_any = true
 no_implicit_optional = true
 strict_equality = true
+exclude = '^(migrations/)'
 
 # ──────────────────────────────────────────────────────────────────────────────
 # pytest 설정
@@ -139,6 +141,6 @@ skip_empty = true
 # Aerich (Tortoise 마이그레이션)
 # ──────────────────────────────────────────────────────────────────────────────
 [tool.aerich]
-tortoise_orm = "app.core.config.TORTOISE_ORM"   # Tortoise 설정 경로
-location = "./migrations"                       # 마이그레이션 저장 폴더
-src_folder = "./."                              # 소스 루트
+tortoise_orm = "app.core.config.TORTOISE_ORM"
+location = "./migrations"
+src_folder = "./."
