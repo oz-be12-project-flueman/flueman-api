@@ -79,7 +79,7 @@ class UsersService:
 
         return _to_user_out(new_user)
 
-    async def update_user(self, user_uuid: str, user: UserUpdate) -> UserResponse:
+    async def update_user(self, user_uuid: str, payload: UserUpdate) -> UserResponse:
         db_user = await self.repo.get(user_uuid)
         if not db_user:
             not_found("user not found")
@@ -87,12 +87,12 @@ class UsersService:
 
         # 레포지토리의 TypedDict 제약에 맞춰 None 제거 후 전달
         fields: UsersRepository.UserUpdateFields = {}
-        if user.phone_number is not None:
-            fields["phone_number"] = user.phone_number
-        if user.role is not None:
-            fields["role"] = user.role
-        if user.is_active is not None:
-            fields["is_active"] = user.is_active
+        if payload.phone_number is not None:
+            fields["phone_number"] = payload.phone_number
+        if payload.role is not None:
+            fields["role"] = payload.role
+        if payload.is_active is not None:
+            fields["is_active"] = payload.is_active
 
         # 필요 시 username/password 갱신 로직 추가 가능:
         # if user.username is not None:
