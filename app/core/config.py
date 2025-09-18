@@ -37,15 +37,15 @@ TORTOISE_ORM = {
     "apps": {
         "models": {
             "models": [
-                "app.features.auth.models",
-                # "app.features.datasets",
-                # "app.features.feedback",
-                # "app.features.health",
-                # "app.features.inference",
-                # "app.features.models_registry",
-                # "app.features.monitoring",
-                # "app.features.preproc_jobs",
                 "app.features.users.models",
+                "app.features.auth.models",
+                "app.features.models_registry.models",
+                # "app.features.datasets.models",
+                # "app.features.feedback.models",
+                # "app.features.health.models",
+                # "app.features.inference.models",
+                # "app.features.monitoring.models",
+                # "app.features.preproc_jobs.models",
                 "aerich.models",
             ],
             "default_connection": "default",
