@@ -2,21 +2,15 @@ from datetime import datetime
 
 from pydantic import BaseModel, EmailStr, Field
 
-# class UserOut(BaseModel):
-#     id: str
-#     email: EmailStr
-#     username: str
-#     phone_number: str
-#     role: str
-#     is_active: bool
+from app.features.users.models import UserRole
 
 
 class UserCreate(BaseModel):
     email: EmailStr
-    password: str = Field(min_length=8)
     username: str
+    password: str = Field(min_length=8)
     phone_number: str
-    role: str = "user"
+    role: UserRole = UserRole.user
     is_active: bool = True
 
 

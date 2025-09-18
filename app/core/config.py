@@ -37,7 +37,7 @@ TORTOISE_ORM = {
     "apps": {
         "models": {
             "models": [
-                # "app.features.auth",
+                "app.features.auth.models",
                 # "app.features.datasets",
                 # "app.features.feedback",
                 # "app.features.health",
@@ -121,6 +121,7 @@ class Settings(BaseSettings):
     JWT_SECRET: str = Field(..., alias="JWT_SECRET")
     JWT_ALGORITHM: str = Field(..., alias="JWT_ALGORITHM")
     JWT_ACCESS_EXPIRES_MIN: int = Field(..., alias="JWT_ACCESS_EXPIRES_MIN")
+    JWT_REFRESH_HASH_PEPPER: str = Field(..., alias="JWT_REFRESH_HASH_PEPPER")
 
     # ─ DB (MySQL) ─
     DB_ROOT_PASSWORD: str = Field(..., alias="DB_ROOT_PASSWORD")
