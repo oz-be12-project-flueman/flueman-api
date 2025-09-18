@@ -21,7 +21,7 @@ class TokenOut(BaseModel):
     access_token: str
     refresh_token: str
     token_type: str = "Bearer"
-    expires_in: int  # access_token TTL(sec)
+    expires_in: int  # access TTL
 
 
 class AccessOnlyOut(BaseModel):
@@ -35,6 +35,12 @@ class MeOut(BaseModel):
     email: EmailStr
     username: str
     role: str
+
+
+class CurrentUser(BaseModel):
+    id: str
+    role: str = "user"
+    email: str
 
 
 # ----------- 공통 에러 페이로드 예시 -----------

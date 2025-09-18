@@ -24,34 +24,20 @@ COPY pyproject.toml uv.lock ./
 # dev 이미지 (dev 의존성 포함, reload)
 ############################
 FROM deps AS dev
-RUN uv sync --frozen
 COPY . .
 
 ## 스크립트 복사 및 권한 부여
 EXPOSE 8000
 COPY scripts/entrypoint.dev.sh /usr/local/bin/entrypoint.dev.sh
 RUN chmod +x /usr/local/bin/entrypoint.dev.sh
-# COPY scripts/entrypoint.dev.sh /app/scripts/entrypoint.dev.sh
-# RUN chmod +x /app/scripts/entrypoint.dev.sh
 
-# 비루트
-# RUN useradd -m app && chown -R app:app /app
-# USER app
 
-# 개발 시 핫리로드
-#ENTRYPOINT ["sh","-lc"]
-# CMD ["uv", "run", "uvicorn", "app.main:app", "--host", "0.0.0.0", "--port", "8000", "--reload"]
 CMD ["/usr/local/bin/entrypoint.dev.sh"]
-# CMD ["/app/scripts/entrypoint.dev.sh"]
+
 ############################
 # prod 이미지 (런타임만)
 ############################
 # FROM deps AS prod
-# RUN uv sync --frozen --no-dev
 # COPY . .
-# RUN useradd -m app && chown -R app:app /app
-# USER app
+
 # EXPOSE 8000
-# HEALTHCHECK --interval=30s --timeout=3s --retries=3 \
-#   CMD curl -fsS http://127.0.0.1:8000/ || exit 1
-# CMD ["uv", "run", "uvicorn", "app.main:app", "--host", "0.0.0.0", "--port", "8000"]
