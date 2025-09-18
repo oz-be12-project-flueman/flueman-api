@@ -1,4 +1,5 @@
 from datetime import UTC, datetime, timedelta
+import hashlib
 
 import jwt
 from passlib.context import CryptContext
@@ -26,3 +27,7 @@ def create_access_token(sub: str, minutes: int | None = None) -> str:
 
 def decode_token(token: str):
     return jwt.decode(token, settings.JWT_SECRET, algorithms=[settings.JWT_ALGORITHM])
+
+
+def hash_refresh_token(raw: str) -> str:
+    return hashlib.sha256((settings.JWT_REFRESH_HASH_PEPPER + raw).encode("utf-8")).hexdigest()
