@@ -13,6 +13,7 @@ from app.core.config import TORTOISE_ORM, settings
 
 from .features.auth.router import router as auth_router
 from .features.health.router import router as health_router
+from .features.inference_requests.router import router as inference_router
 from .features.models_registry.router import router as model_router
 from .features.users.router import router as user_router
 from .middleware import setup_middlewares
@@ -133,6 +134,7 @@ def create_app() -> FastAPI:
     app.include_router(auth_router)
     app.include_router(user_router)
     app.include_router(model_router)
+    app.include_router(inference_router)
 
     # OpenAPI 보안 스키마 주입 (메서드 재할당은 허용)
     app.openapi = lambda: build_openapi(app)  # type: ignore[method-assign]
