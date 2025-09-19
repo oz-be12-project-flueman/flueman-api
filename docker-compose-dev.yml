@@ -1,43 +1,110 @@
+version: "3.9"  # ✅ Compose 파일 포맷 버전
+
 services:
+  # ─────────────────────────────────────────────────────────────
+  # MySQL (개발용 DB)
+  # ─────────────────────────────────────────────────────────────
   db:
-    image: mysql:8.4
-    restart: always
+    image: mysql:8.4                               # MySQL 8.4 이미지
+    restart: always                                # 컨테이너 자동 재시작
+    container_name: flueman-db-dev                 # 컨테이너 이름
     env_file:
-      - .env
-    container_name: flueman-db-dev
+      - .env                                       # .env에서 공통 환경변수 로드
     environment:
-      MYSQL_ROOT_PASSWORD: ${DB_ROOT_PASSWORD}
-      MYSQL_USER: ${DB_USER}
-      MYSQL_PASSWORD: ${DB_PASSWORD}
-      MYSQL_DATABASE: ${DB_NAME}
-      TZ: Asia/Seoul
+      MYSQL_ROOT_PASSWORD: ${DB_ROOT_PASSWORD}     # 루트 비밀번호
+      MYSQL_USER: ${DB_USER}                       # 일반 사용자
+      MYSQL_PASSWORD: ${DB_PASSWORD}               # 일반 사용자 비밀번호
+      MYSQL_DATABASE: ${DB_NAME}                   # 초기 생성 DB 이름
+      TZ: Asia/Seoul                               # 컨테이너 타임존
     ports:
-      - "3306:3306"
+      - "3306:3306"                                # 호스트:컨테이너 포트 매핑
     volumes:
-      - db_data:/var/lib/mysql
-    healthcheck:
+      - db_data:/var/lib/mysql                     # 데이터 영속 볼륨
+    healthcheck:                                   # DB 준비 상태 체크
       test: ["CMD", "mysqladmin", "ping", "-h", "127.0.0.1", "-p${DB_ROOT_PASSWORD}"]
       interval: 5s
       timeout: 3s
       retries: 10
 
+  # ─────────────────────────────────────────────────────────────
+  # MinIO (로컬 S3 호환 스토리지)
+  #  - 9000: S3 API 엔드포인트
+  #  - 9001: 웹 콘솔(UI)
+  # ─────────────────────────────────────────────────────────────
+  minio:
+    image: minio/minio:latest
+    container_name: flueman-minio-dev
+    command: server /data --console-address ":9001"  # 콘솔 포트 지정
+    environment:
+      MINIO_ROOT_USER: ${MINIO_ROOT_USER}            # 관리자 ID(기본값)
+      MINIO_ROOT_PASSWORD: ${MINIO_ROOT_PASSWORD} # 관리자 PW(기본값)
+      TZ: Asia/Seoul
+    ports:
+      - "9000:9000"                                  # S3 API
+      - "9001:9001"                                  # 콘솔(UI)
+    volumes:
+      - minio_data:/data                             # 객체 저장소 데이터
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:9000/minio/health/live"] # 라이브니스 체크
+      interval: 5s
+      timeout: 3s
+      retries: 10
+
+  # ─────────────────────────────────────────────────────────────
+  # MinIO 초기화(Job) - 버킷 생성/권한 설정 (idempotent)
+  #   - minio 서비스가 Healthy 되면 1회 실행 후 종료
+  # ─────────────────────────────────────────────────────────────
+  minio-init:
+    image: minio/minio:latest
+    container_name: flueman-minio-init
+    depends_on:
+      minio:
+        condition: service_healthy
+    entrypoint: >
+      /bin/sh -c "
+      mc alias set local http://minio:9000 ${MINIO_ROOT_USER:-minioadmin} ${MINIO_ROOT_PASSWORD:-minioadmin123} &&
+      mc mb -p local/${S3_BUCKET:-flueman-dev} || true &&
+      mc anonymous set download local/${S3_BUCKET:-flueman-dev} || true &&
+      echo 'MinIO bucket ready'
+      "
+    restart: "no"                                   # 1회성 작업
+
+  # ─────────────────────────────────────────────────────────────
+  # FastAPI 앱 (개발 서버)
+  # ─────────────────────────────────────────────────────────────
   web:
     container_name: flueman-web-dev
     build:
-      context: .
-      dockerfile: ./docker/Dockerfile
-    command: /usr/local/bin/entrypoint.dev.sh
+      context: .                                    # Docker 빌드 컨텍스트
+      dockerfile: ./docker/Dockerfile               # 사용할 Dockerfile 경로
+    command: /usr/local/bin/entrypoint.dev.sh       # 개발용 엔트리포인트(핫리로드 등)
     env_file:
-      - .env
+      - .env                                        # 앱 공통 환경변수 로드
+    environment:
+      # ⬇️ 개발 환경에서는 MinIO 사용 — 앱 설정에서 이 값들을 읽어 S3 클라이언트 생성
+      STORAGE_PROVIDER: ${STORAGE_PROVIDER:-minio}          # minio | s3 (프로덕션은 s3)
+      S3_ENDPOINT_URL: ${S3_ENDPOINT_URL:-http://minio:9000}# MinIO 엔드포인트
+      S3_REGION: ${S3_REGION:-us-east-1}                     # 리전(임의 값)
+      S3_ACCESS_KEY_ID: ${MINIO_ROOT_USER}       # 액세스 키
+      S3_SECRET_ACCESS_KEY: ${MINIO_ROOT_PASSWORD} # 시크릿 키
+      S3_BUCKET: ${S3_BUCKET:-flueman-dev}                   # 기본 버킷명
     ports:
-      - "8000:8000"
-    depends_on:
+      - "8000:8000"                                # FastAPI 포트 노출
+    depends_on:                                    # 의존 서비스 준비 조건
       db:
         condition: service_healthy
+      minio:
+        condition: service_healthy
+      minio-init:
+        condition: service_completed_successfully
     volumes:
-      - .:/app
-      - venv_cache:/app/.venv
+      - .:/app                                     # 소스 코드 마운트(핫리로드)
+      - venv_cache:/app/.venv                      # 가상환경 캐시(빌드 속도↑)
 
+# ─────────────────────────────────────────────────────────────
+# 볼륨 정의(데이터 영속)
+# ─────────────────────────────────────────────────────────────
 volumes:
-  db_data:
-  venv_cache:
+  db_data:      # MySQL 데이터
+  minio_data:   # MinIO 객체 데이터
+  venv_cache:   # 웹 컨테이너 가상환경 캐시
