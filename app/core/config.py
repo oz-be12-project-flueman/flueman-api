@@ -37,15 +37,14 @@ TORTOISE_ORM = {
     "apps": {
         "models": {
             "models": [
-                "app.features.auth.models",
-                # "app.features.datasets",
-                # "app.features.feedback",
-                # "app.features.health",
-                # "app.features.inference",
-                # "app.features.models_registry",
-                # "app.features.monitoring",
-                # "app.features.preproc_jobs",
                 "app.features.users.models",
+                "app.features.auth.models",
+                "app.features.models_registry.models",
+                "app.features.inference_requests.models",
+                "app.features.datasets.models",
+                # "app.features.feedback.models",
+                # "app.features.monitoring.models",
+                # "app.features.preproc_jobs.models",
                 "aerich.models",
             ],
             "default_connection": "default",
@@ -143,6 +142,18 @@ class Settings(BaseSettings):
             f"@{self.DB_HOST}:{self.DB_PORT}/{self.DB_NAME}"
             "?charset=utf8mb4"
         )
+
+    # ─ MinIO(개발) ─
+    MINIO_ROOT_USER: str = Field(..., alias="MINIO_ROOT_USER")
+    MINIO_ROOT_PASSWORD: str = Field(..., alias="MINIO_ROOT_PASSWORD")
+    S3_BUCKET: str = Field(..., alias="S3_BUCKET")
+
+    # ─ 앱 스토리지 설정(개발에선 MinIO) ─
+    STORAGE_PROVIDER: str = Field(..., alias="STORAGE_PROVIDER")
+    S3_ENDPOINT_URL: str = Field(..., alias="S3_ENDPOINT_URL")
+    S3_REGION: str = Field(..., alias="S3_REGION")
+    S3_ACCESS_KEY_ID: str = Field(..., alias="S3_ACCESS_KEY_ID")
+    S3_SECRET_ACCESS_KEY: str = Field(..., alias="S3_SECRET_ACCESS_KEY")
 
     # ─ Cloudinary ─
     CLOUDINARY_CLOUD_NAME: str = Field(..., alias="CLOUDINARY_CLOUD_NAME")
